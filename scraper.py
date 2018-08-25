@@ -2,6 +2,7 @@
 
 
 import json
+import re
 import sys
 import os
 import csv
@@ -12,7 +13,7 @@ import operator
 from bs4 import BeautifulSoup
 from marshmallow import ValidationError
 from urlparse import urlparse
-from filters import Filter, FilterChain
+from filters import Filter, FilterChain, ListContainedinListFilter, CaseInsensitiveStringFilter
 from mighty_schema import ScrapeRequestSchema
 
 
@@ -60,13 +61,9 @@ def validate_csv_file(csv_file_path):
         sys.exit(1)
 
 
-def check_for_valid_arguents(arguments):
+def check_for_valid_arguents(filename):
 
-    if not arguments:
-        sys.stderr.write(help_text)
-        sys.exit(1)
-
-    validate_csv_file(arguments[0])
+    return validate_csv_file(filename)
 
 
 def get_name(soup):
@@ -84,8 +81,32 @@ def get_app_identifier(url):
 
 
 def get_minimum_ios_version(soup):
+    '''
+    Finding information section, which is the fourth element in the list
+    :param soup:
+    :return:
+    '''
+    bordered_section = soup.find_all('section', attrs={'class': 'l-content-width section section--bordered'})
 
-    pass
+    for element in bordered_section:
+        if element.get_text().strip().startswith(u'Information'):
+            return u'{}'.format(re.findall('Requires iOS(.*)or later.', element.get_text())[0].strip())
+
+
+def get_languages(soup):
+    '''
+    Finding information section, which is the fourth element in the list
+    :param soup:
+    :return:
+    '''
+
+    bordered_section = soup.find_all('section', attrs={'class': 'l-content-width section section--bordered'})
+
+    for element in bordered_section:
+        if element.get_text().strip().startswith(u'Information'):
+            languages = re.findall('Languages(\n\s*)(.*)(\n\s*)Age', element.get_text())
+            languages_as_string = ' '.join(languages[0]).strip()
+            return [u'{}'.format(language.strip()) for language in languages_as_string.split(',')]
 
 
 def gather_data(data):
@@ -94,11 +115,11 @@ def gather_data(data):
 
     for _data in data:
         url = _data.get('app_store_url')
+        name = u'{}'.format(_data.get('app_name'))
+        print name, url
         page = urllib2.urlopen(url)
 
         soup = BeautifulSoup(page, 'lxml')
-
-        name = get_name(soup)
 
         app_identifier = get_app_identifier(url)
 
@@ -109,13 +130,20 @@ def gather_data(data):
         _rv = {
             'name': name,
             'app_identifier': app_identifier,
-            'minimum_ios_version': minimum_ios_version,
+            'minimum_version': minimum_ios_version,
             'languages': languages
         }
 
         rv.append(_rv)
 
     return rv
+
+
+def write_json_to_file(data, filename):
+    with open(filename, 'w+') as f:
+        data_as_string = unicode(json.dumps(data)).encode('utf-8')
+        f.write(data_as_string)
+
 
 def scrape(data):
     us_apps_filter = Filter(
@@ -130,9 +158,44 @@ def scrape(data):
 
     gathered_data = gather_data(us_apps)
 
+    spanish_and_tagalog_filter = ListContainedinListFilter(
+        field='languages',
+        op=operator.contains,
+        value=[u'Spanish', u'Tagalog']
+    )
+
+    filter_chain = FilterChain()
+
+    filter_chain.add_filter(spanish_and_tagalog_filter)
+
+    spanish_and_tagalog_data = filter_chain.filter(gathered_data)
+
+    insta_in_name_filter = CaseInsensitiveStringFilter(
+        field='name',
+        op=operator.contains,
+        value='insta'
+    )
+
+    filter_chain = FilterChain()
+
+    filter_chain.add_filter(insta_in_name_filter)
+
+    insta_in_name_data = filter_chain.filter(gathered_data)
+
+    filtered_data = {
+        'apps_in_spanish_and_tagalog': [_d.get('app_identifier') for _d in spanish_and_tagalog_data],
+        'apps_with_insta_in_name': [_d.get('app_identifier') for _d in insta_in_name_data]
+    }
+    write_json_to_file(filtered_data, 'filtered_apps.json')
+    write_json_to_file(gathered_data, 'apps.json')
+
 
 if __name__ == '__main__':
     arguments = sys.argv
-    check_for_valid_arguents(arguments)
-    csv_file_name = arguments[0]
-    scrape(csv_file_name)
+
+    if not arguments or len(arguments) < 2:
+        sys.stderr.write(help_text)
+        sys.exit(1)
+
+    data = check_for_valid_arguents(arguments[1])
+    scrape(data)

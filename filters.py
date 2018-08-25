@@ -31,6 +31,16 @@ class CaseInsensitiveStringFilter(Filter):
         return _rv
 
 
+class ListContainedinListFilter(Filter):
+
+    def filter(self, data):
+        _rv = list()
+        for _d in data:
+            if all(elem in _d.get(self._field) for elem in self._value):
+                _rv.append(_d)
+        return _rv
+
+
 class DateFilter(Filter):
 
     def filter(self, data):
