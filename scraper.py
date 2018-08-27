@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-
-
+import httplib
 import json
 import re
+import socket
 import sys
 import os
 import csv
@@ -109,6 +109,29 @@ def get_languages(soup):
             return [u'{}'.format(language.strip()) for language in languages_as_string.split(',')]
 
 
+def open_page(url):
+    try:
+        page = urllib2.urlopen(url)
+        return page
+    except urllib2.HTTPError, e:
+        sys.stderr.write('url:{} HTTP Error: {}'.format(url, e.reason))
+        sys.exit(1)
+    except urllib2.URLError, e:
+        sys.stderr.write('url:{} URL Error: {}'.format(url, e.reason))
+        sys.exit(1)
+    except httplib.HTTPException, e:
+        sys.stderr.write('url:{} HTTP Exception: {}'.format(url, e.reason))
+        sys.exit(1)
+    except socket.timeout, e:
+        sys.stderr.write('url:{} Socket Timed out'.format(url))
+        sys.exit(1)
+    except Exception:
+        sys.stderr.write('url:{} Blanket Exception'.format(url))
+        err = traceback.format_exc()
+        sys.stderr.write(err)
+        sys.exit(1)
+
+
 def gather_data(data):
 
     rv = list()
@@ -116,8 +139,8 @@ def gather_data(data):
     for _data in data:
         url = _data.get('app_store_url')
         name = u'{}'.format(_data.get('app_name'))
-        print name, url
-        page = urllib2.urlopen(url)
+
+        page = open_page(url)
 
         soup = BeautifulSoup(page, 'lxml')
 
