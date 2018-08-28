@@ -15,7 +15,7 @@ from scraper import check_for_valid_arguents, open_page, gather_data
 class TestScrapper(unittest.TestCase):
 
     def test_check_for_valid_arguments(self):
-        filename = 'input.csv'
+        filename = 'test_input.csv'
 
         output = [
             {
