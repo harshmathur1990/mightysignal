@@ -14,8 +14,7 @@ from bs4 import BeautifulSoup
 from marshmallow import ValidationError
 from urlparse import urlparse
 from filters import Filter, FilterChain, ListContainedinListFilter, CaseInsensitiveStringFilter
-from mighty_schema import ScrapeRequestSchema
-
+from mighty_schema import ScrapeRequestSchema, ScrapeRequestData
 
 help_text = '''
     Usage: python scraper.py input_csv_path
@@ -40,7 +39,7 @@ def get_snake_case(key):
 
 def validate_csv_file(csv_file_path):
     if not os.path.exists(csv_file_path):
-        sys.stderr.write(u'No Such file or directory')
+        sys.stderr.write(u'No Such file or directory: {}\n'.format(csv_file_path))
         sys.exit(1)
 
     try:
@@ -50,8 +49,14 @@ def validate_csv_file(csv_file_path):
 
         reader.fieldnames = [get_snake_case(name) for name in reader.fieldnames]
 
-        schema_request = ScrapeRequestSchema(many=True).load(reader)
-        return schema_request.data
+        reader = [r for r in reader]
+        errors = ScrapeRequestData().validate({'data': reader})
+        if errors:
+            sys.stderr.write(json.dumps(errors)+'\n')
+            sys.exit(1)
+        schema_request = ScrapeRequestData().load({'data': reader})
+        data = schema_request.data['data']
+        return data
     except ValidationError as err:
         sys.stderr.write(json.dumps(err.messages))
         sys.exit(1)

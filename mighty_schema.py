@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-from marshmallow import Schema, fields, validates, ValidationError
+from marshmallow import Schema, fields, validates, ValidationError, validates_schema, validate
 
 
 class ScrapeRequestSchema(Schema):
@@ -9,13 +9,19 @@ class ScrapeRequestSchema(Schema):
     app_store_url = fields.URL(required=True)
 
     @validates('app_store_url')
-    def validate_quantity(self, value):
+    def validate_app_store_url(self, value):
         if not value.startswith(u'https://itunes.apple.com/'):
             raise ValidationError(u'only itunes URLs are allowed')
 
 
-class AppsiniOS(Schema):
-    languages = fields.List(fields.Str(required=True), required=True)
-    app_identifier = fields.Int(required=True)
-    name = fields.Str(required=True)
-    minimum_version = fields.Str(required=True)
+class ScrapeRequestData(Schema):
+
+    data = fields.Nested(
+        ScrapeRequestSchema,
+        validate=validate.Length(
+           min=1,
+           error='Field may not be an empty list'
+        ),
+        required=True,
+        many=True
+    )

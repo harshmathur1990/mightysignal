@@ -40,6 +40,28 @@ class TestScrapper(unittest.TestCase):
 
         self.assertEqual(self._compare_list(out, output), True)
 
+        invalid_file_name = 'blah_blah.csv'
+
+        with self.assertRaises(SystemExit) as cm:
+            out = check_for_valid_arguents(invalid_file_name)
+
+        self.assertEqual(cm.exception.code, 1)
+
+        wrong_input_file_name = 'test_wrong_input.csv'
+
+        with self.assertRaises(SystemExit) as cm:
+            out = check_for_valid_arguents(wrong_input_file_name)
+
+        self.assertEqual(cm.exception.code, 1)
+
+        missing_input_file_name = 'test_missing_input.csv'
+
+        with self.assertRaises(SystemExit) as cm:
+            out = check_for_valid_arguents(missing_input_file_name)
+
+        self.assertEqual(cm.exception.code, 1)
+
+
     def _compare_list(self, list1, list2):
 
         if len(list1) != len(list2):
@@ -1756,6 +1778,7 @@ class TestScrapper(unittest.TestCase):
         ]
 
         self.assertEqual(self._compare_list(fetched_data, valid_data), True)
+
 
 if __name__ == '__main__':
     unittest.main()
